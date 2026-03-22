@@ -1,5 +1,6 @@
 import streamlit as st
-import pickle
+import joblib
+import os
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -29,25 +30,40 @@ with st.sidebar:
 # -----------------------------
 # LOAD FILES
 # -----------------------------
-@st.cache_resource
-def load_model():
-    with open("sales_forecast.pkl", "rb") as f:
-        return pickle.load(f)
 
 @st.cache_resource
-def load_encoder():
-    with open("encoder.pkl", "rb") as f:
-        return pickle.load(f)
+def load_all_models():
+    """Load model using joblib"""
+    files = {
+        'model': "sales_forecast.joblib",
+        'family_encoder': "family_encoder.joblib",
+        'holiday_encoder': "holiday_encoder.joblib",
+        'family_df': "family_df.csv"  # Add your CSV file here
+    }
 
-@st.cache_data
-def load_data():
-    df = pd.read_csv("family_df.csv")
-    df['date'] = pd.to_datetime(df['date'])
-    return df
+    
+    try:
+        # Load joblib files
+        model = joblib.load(files['model'])
+        family_encoder = joblib.load(files['family_encoder'])
+        holiday_encoder = joblib.load(files['holiday_encoder'])
+        
+        # Load CSV file
+        family_df = pd.read_csv(files['family_df'])
 
-model = load_model()
-encoder = load_encoder()
-family_df = load_data()
+        # --- ADD THIS LINE HERE ---
+        family_df['date'] = pd.to_datetime(family_df['date'])
+        
+        st.success("✅ All models loaded successfully!")
+        
+        return model, family_encoder, holiday_encoder, family_df
+        
+    except Exception as e:
+        st.error(f"❌ Error loading models: {str(e)}")
+        st.stop()
+
+# Load models at startup
+model, family_encoder, holiday_encoder, family_df = load_all_models()
 
 
 
@@ -68,7 +84,7 @@ Analyze patterns & predict future sales
 st.header("📊 Exploratory Data Analysis")
 
 # Decode family labels
-family_labels = encoder.categories_[0]
+family_labels = family_encoder.categories_[0]
 
 # Create readable family names
 eda_df = family_df.copy()
@@ -188,7 +204,7 @@ def forecast_family(model, df, days):
 st.header("🔮 Forecasting")
 
 # Decode family labels
-family_labels = encoder.categories_[0]
+family_labels = family_encoder.categories_[0]
 
 selected_family = st.selectbox("Select Product Family", family_labels)
 days = st.selectbox("Forecast Horizon (days)", [7, 14, 30])
